@@ -1,6 +1,8 @@
+import os
 import sys
 import socket
 from struct import *
+import logging as log
 
 
 class Colors:
@@ -13,7 +15,13 @@ class Colors:
     WHITE = "\033[97m"
 
 
-def sniff_traffic():
+def sniff_traffic(encoding: str, mode: str):
+
+    log_dir = "./packet-logs"
+    log_file_name = "captured.log"
+
+    global raw_data
+    global data
 
     try:
         sock = socket.socket(
@@ -23,6 +31,12 @@ def sniff_traffic():
         print(Colors.RED + "COULD NOT CREATE SOCKET => " + Colors.WHITE + "ERROR_CODE: " +
               str(err_code[0]) + "MESSAGE: " + str(err_code[1]))
         sys.exit()
+
+    if mode == "log":
+        os.mkdir(f"{log_dir}")
+
+        log.basicConfig(filename=(log_dir + "/" + log_file_name),
+                        level=log.DEBUG, format="%(asctime)s: %(message)s")
 
     while True:
         packet = sock.recvfrom(65565)
@@ -65,10 +79,21 @@ def sniff_traffic():
         header_size = iph_length + tcph_length * 4
         data_size = len(packet) - header_size
 
-        data = packet[header_size:]
+        raw_data = packet[header_size:]
 
-        print(Colors.GREEN + 'RAW_DATA: ' + str(data) + "\n")
+        data = raw_data.decode(encoding=encoding, errors="backslashreplace")
+
+        print(Colors.YELLOW + "RAW_DATA: " + str(raw_data) + "\n")
+        print(Colors.GREEN + "DECODED_DATA: " + str(data) + "\n")
+
+        print(mode)
+
+        log.info(f"RAW_DATA: {str(raw_data)}")
 
 
 if __name__ == '__main__':
-    sniff_traffic()
+    if sys.argv[1] == "-l" or sys.argv[1] == "--log":
+        sniff_traffic("utf-8", "log")
+
+    elif sys.argv[1] == "-n" or sys.argv[1] == "--no-log":
+        sniff_traffic("utf-8", "no_log")
